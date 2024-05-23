@@ -1,0 +1,46 @@
+;;; 
+Export: Release 21.0.0.0.0 - Production on Mié May 22 22:02:19 2024
+Version 21.3.0.0.0
+
+Copyright (c) 1982, 2021, Oracle and/or its affiliates.  All rights reserved.
+;;; 
+Conectado a: Oracle Database 21c Express Edition Release 21.0.0.0.0 - Production
+Iniciando "ALEXT"."SYS_EXPORT_SCHEMA_01":  alext/********@xe directory=DATA_PUMP_DIR dumpfile=xe_20240522_220219.dmp logfile=xe_20240522_220219.log 
+Procesando el tipo de objeto SCHEMA_EXPORT/TABLE/TABLE_DATA
+Procesando el tipo de objeto SCHEMA_EXPORT/TABLE/INDEX/STATISTICS/INDEX_STATISTICS
+Procesando el tipo de objeto SCHEMA_EXPORT/TABLE/STATISTICS/TABLE_STATISTICS
+Procesando el tipo de objeto SCHEMA_EXPORT/STATISTICS/MARKER
+Procesando el tipo de objeto SCHEMA_EXPORT/SYSTEM_GRANT
+Procesando el tipo de objeto SCHEMA_EXPORT/DEFAULT_ROLE
+Procesando el tipo de objeto SCHEMA_EXPORT/PRE_SCHEMA/PROCACT_SCHEMA
+Procesando el tipo de objeto SCHEMA_EXPORT/TABLE/TABLE
+Procesando el tipo de objeto SCHEMA_EXPORT/TABLE/COMMENT
+Procesando el tipo de objeto SCHEMA_EXPORT/TABLE/INDEX/INDEX
+Procesando el tipo de objeto SCHEMA_EXPORT/TABLE/CONSTRAINT/CONSTRAINT
+Procesando el tipo de objeto SCHEMA_EXPORT/TABLE/CONSTRAINT/REF_CONSTRAINT
+. . "ALEXT"."OBRADEARTE"                        8.671 KB       2 filas exportadas
+. . "ALEXT"."EMPLEADO"                          8.625 KB       2 filas exportadas
+. . "ALEXT"."ARTISTA"                           7.781 KB       2 filas exportadas
+. . "ALEXT"."PRESTAMO"                          7.765 KB       2 filas exportadas
+. . "ALEXT"."VOLUNTARIO"                        7.734 KB       2 filas exportadas
+. . "ALEXT"."TIENDA"                            7.375 KB       2 filas exportadas
+. . "ALEXT"."DONANTE"                           7.289 KB       2 filas exportadas
+. . "ALEXT"."VISITANTE"                         7.289 KB       2 filas exportadas
+. . "ALEXT"."PRODUCTOTIENDA"                    6.968 KB       2 filas exportadas
+. . "ALEXT"."PRODUCTO"                          6.960 KB       2 filas exportadas
+. . "ALEXT"."PATROCINADOR"                      6.906 KB       2 filas exportadas
+. . "ALEXT"."MANTENIMIENTO"                     6.906 KB       2 filas exportadas
+. . "ALEXT"."INCIDENTE"                         6.875 KB       2 filas exportadas
+. . "ALEXT"."DONACION"                          6.882 KB       2 filas exportadas
+. . "ALEXT"."PRESTADOR"                         6.859 KB       2 filas exportadas
+. . "ALEXT"."UBICACIONOBRA"                     6.421 KB       2 filas exportadas
+. . "ALEXT"."PROPIETARIO"                       6.406 KB       2 filas exportadas
+. . "ALEXT"."COMPRA"                            6.445 KB       2 filas exportadas
+. . "ALEXT"."ENTRADA"                           6.445 KB       2 filas exportadas
+. . "ALEXT"."ROL"                               6.015 KB       2 filas exportadas
+. . "ALEXT"."MUSEO"                             5.984 KB       2 filas exportadas
+La tabla maestra "ALEXT"."SYS_EXPORT_SCHEMA_01" se ha cargado/descargado correctamente
+******************************************************************************
+El juego de archivos de volcado para ALEXT.SYS_EXPORT_SCHEMA_01 es:
+  C:\APP\ALEXT\PRODUCT\21C\ADMIN\XE\DPDUMP\XE_20240522_220219.DMP
+El trabajo "ALEXT"."SYS_EXPORT_SCHEMA_01" ha terminado correctamente en Mié May 22 22:03:22 2024 elapsed 0 00:00:59
