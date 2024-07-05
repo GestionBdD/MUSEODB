@@ -1,0 +1,23 @@
+DECLARE
+    CURSOR c_dynamic IS
+        SELECT 
+            ALEXT.OBRADEARTE.ObraID AS ID,
+            ALEXT.OBRADEARTE.Titulo AS Titulo,
+            ALEXT.ARTISTA.Nombre AS Artista,
+            ALEXT.MUSEO.Nombre AS Museo,
+            ALEXT.UBICACIONOBRA.Referencia AS Ubicacion
+        FROM 
+            ALEXT.OBRADEARTE,
+            ALEXT.ARTISTA,
+            ALEXT.MUSEO,
+            ALEXT.UBICACIONOBRA
+        WHERE 
+            ALEXT.OBRADEARTE.ArtistaID = ALEXT.ARTISTA.ArtistaID
+            AND ALEXT.OBRADEARTE.MuseoID = ALEXT.MUSEO.MuseoID
+            AND ALEXT.OBRADEARTE.UbicacionObraID = ALEXT.UBICACIONOBRA.UbicacionObraID;
+BEGIN
+    -- Recorrer el cursor dinámico
+    FOR r IN c_dynamic LOOP
+        DBMS_OUTPUT.PUT_LINE('Resultado: ' || r.ID || ', ' || r.Titulo || ', ' || r.Artista || ', ' || r.Museo || ', ' || r.Ubicacion);
+    END LOOP;
+END;
