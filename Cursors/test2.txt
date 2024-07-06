@@ -1,0 +1,26 @@
+DECLARE
+    CURSOR c_dynamic IS
+        SELECT 
+            ALEXT.PRODUCTO.ProductoID,
+            ALEXT.PRODUCTO.Nombre AS ProductoNombre,
+            ALEXT.PRODUCTO.Precio,
+            ALEXT.TIENDA.Nombre AS TiendaNombre,
+            ALEXT.PROPIETARIO.Nombre AS PropietarioNombre,
+            ALEXT.MUSEO.Nombre AS MuseoNombre
+        FROM 
+            ALEXT.PRODUCTO,
+            ALEXT.PRODUCTOTIENDA,
+            ALEXT.TIENDA,
+            ALEXT.PROPIETARIO,
+            ALEXT.MUSEO
+        WHERE 
+            ALEXT.PRODUCTO.ProductoID = ALEXT.PRODUCTOTIENDA.ProductoID
+            AND ALEXT.PRODUCTOTIENDA.TiendaID = ALEXT.TIENDA.TiendaID
+            AND ALEXT.TIENDA.PropietarioID = ALEXT.PROPIETARIO.PropietarioID
+            AND ALEXT.TIENDA.MuseoID = ALEXT.MUSEO.MuseoID;
+BEGIN
+    -- Recorrer el cursor dinámico
+    FOR r IN c_dynamic LOOP
+        DBMS_OUTPUT.PUT_LINE('Resultado: ' || r.ProductoID || ', ' || r.ProductoNombre || ', ' || r.Precio || ', ' || r.TiendaNombre || ', ' || r.PropietarioNombre || ', ' || r.MuseoNombre);
+    END LOOP;
+END;

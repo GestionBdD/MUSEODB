@@ -6,6 +6,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from reportlab.lib import colors
 from shutil import copyfile
+import threading
+import time
 
 def mostrar_menu():
     print("\nMenu de Opciones:")
@@ -20,7 +22,15 @@ def mostrar_menu():
     print("9. Restaurar base de datos")
     print("10. Generar PDF")
     print("11. CRUD")
-    print("12. Salir")
+    print("12. Aplicación de metadatos")
+    print("13. Función de generación")
+    print("14. Consultar datos con cursor")
+    print("15. Cursor Dinámico")
+    print("16. Cargar y Ejecutar Cursor desde Archivo")
+    print("17. Aplicación de múltiples hilos")
+    print("18. Historial de consultas realizadas")
+    print("19. Modificar ubicacion de las obras")
+    print("20. Salir")
 
 # CREAR USUARIOS
 def crear_usuario_oracle(cursor, nombre_usuario, contraseña):
@@ -611,9 +621,437 @@ def opcion11(cursor):
     else:
         print("No se encontraron tablas en el esquema especificado.")
 
+def aplicar_metadatos(cursor):
+    try:
+        query = """
+        BEGIN
+            EXECUTE IMMEDIATE 'COMMENT ON COLUMN "ALEXT"."MUSEO"."NOMBRE" IS ''Nombre del museo''';
+        END;
+        """
+        cursor.execute(query)
+        print("Metadatos aplicados exitosamente.")
+    except cx_Oracle.DatabaseError as e:
+        error, = e.args
+        print(f"Error al aplicar metadatos: {error.code} - {error.message}")
+
+def funcion_de_generacion(cursor):
+    try:
+        # Verificar si el procedimiento existe y eliminarlo si es necesario
+        query_verificar = """
+        SELECT COUNT(*) 
+        FROM all_objects 
+        WHERE object_name = 'SP_GENERAR_DATOS' 
+        AND object_type = 'PROCEDURE'
+        AND owner = 'ALEXT'
+        """
+        cursor.execute(query_verificar)
+        exists = cursor.fetchone()[0]
+        if exists:
+            cursor.execute('DROP PROCEDURE "ALEXT"."SP_GENERAR_DATOS"')
+
+        # Crear el nuevo procedimiento
+        query_crear = """
+        CREATE OR REPLACE PROCEDURE "ALEXT"."SP_GENERAR_DATOS" AS
+        BEGIN
+            INSERT INTO "ALEXT"."MUSEO" (MUSEOID, NOMBRE, UBICACION) VALUES (4, 'Museo D', 'Ubicación D');
+            COMMIT;
+        END;
+        """
+        cursor.execute(query_crear)
+        print("Función de generación creada exitosamente.")
+
+        # Ejecutar el procedimiento
+        cursor.execute('BEGIN "ALEXT"."SP_GENERAR_DATOS"; END;')
+        print("Procedimiento SP_GENERAR_DATOS ejecutado exitosamente.")
+    except cx_Oracle.DatabaseError as e:
+        error, = e.args
+        print(f"Error al ejecutar la función de generación: {error.code} - {error.message}")
+
+def mostrar_datos_con_cursor(cursor):
+    try:
+        # Habilitar DBMS_OUTPUT
+        cursor.callproc("DBMS_OUTPUT.ENABLE")
+
+        # Definir el bloque PL/SQL
+        plsql_block = """
+        DECLARE
+            CURSOR c_museo IS
+                SELECT MuseoID, Nombre, Ubicacion FROM ALEXT.MUSEO;
+
+            CURSOR c_artista IS
+                SELECT ArtistaID, Nombre, Apellido, Nacionalidad FROM ALEXT.ARTISTA;
+
+            CURSOR c_obra IS
+                SELECT ObraID, Titulo, Tipo, Descripcion, FechaCreacion, MuseoID, ArtistaID FROM ALEXT.OBRADEARTE;
+
+            CURSOR c_donante IS
+                SELECT DonanteID, Nombre, Apellido FROM ALEXT.DONANTE;
+
+        BEGIN
+            -- Recorrer el cursor de museos
+            FOR r_museo IN c_museo LOOP
+                DBMS_OUTPUT.PUT_LINE('MuseoID: ' || r_museo.MuseoID || ', Nombre: ' || r_museo.Nombre || ', Ubicacion: ' || r_museo.Ubicacion);
+            END LOOP;
+
+            -- Recorrer el cursor de artistas
+            FOR r_artista IN c_artista LOOP
+                DBMS_OUTPUT.PUT_LINE('ArtistaID: ' || r_artista.ArtistaID || ', Nombre: ' || r_artista.Nombre || ', Apellido: ' || r_artista.Apellido || ', Nacionalidad: ' || r_artista.Nacionalidad);
+            END LOOP;
+
+            -- Recorrer el cursor de obras
+            FOR r_obra IN c_obra LOOP
+                DBMS_OUTPUT.PUT_LINE('ObraID: ' || r_obra.ObraID || ', Titulo: ' || r_obra.Titulo || ', Tipo: ' || r_obra.Tipo || ', Descripcion: ' || r_obra.Descripcion || ', FechaCreacion: ' || r_obra.FechaCreacion);
+            END LOOP;
+
+            -- Recorrer el cursor de donantes
+            FOR r_donante IN c_donante LOOP
+                DBMS_OUTPUT.PUT_LINE('DonanteID: ' || r_donante.DonanteID || ', Nombre: ' || r_donante.Nombre || ', Apellido: ' || r_donante.Apellido);
+            END LOOP;
+        END;
+        """
+        cursor.execute(plsql_block)
+
+        # Buffer para capturar la salida
+        buffer_size = 10000
+        output = cursor.var(cx_Oracle.STRING)
+        status_var = cursor.var(cx_Oracle.NUMBER)
+
+        while True:
+            cursor.callproc("DBMS_OUTPUT.GET_LINE", (output, status_var))
+            if status_var.getvalue() != 0:
+                break
+            print(output.getvalue())
+
+        print("Datos mostrados exitosamente.")
+    except Exception as e:
+        print(f"Error al mostrar los datos: {e}")
+
+def listar_tablas(cursor):
+    cursor.execute("SELECT table_name FROM all_tables WHERE owner = 'ALEXT'")
+    tablas = [row[0] for row in cursor.fetchall()]
+    return tablas
+
+def listar_atributos(cursor, tabla):
+    cursor.execute(f"SELECT column_name FROM all_tab_columns WHERE table_name = '{tabla}' AND owner = 'ALEXT'")
+    atributos = [row[0] for row in cursor.fetchall()]
+    return atributos
+
+def cursor_dinamico(cursor):
+    try:
+        # Solicitar al usuario que ingrese las tablas a consultar
+        tablas_input = input("Ingrese los nombres de las tablas a consultar, separadas por comas: ").strip()
+        tablas = [tabla.strip() for tabla in tablas_input.split(',')]
+
+        # Mostrar las tablas seleccionadas y solicitar los atributos de cada tabla
+        atributos = []
+        for tabla in tablas:
+            print(f"Seleccione los atributos de la tabla {tabla} separados por comas (use alias para evitar conflictos):")
+            atributos_input = input().strip()
+            atributos.extend([atributo.strip() for atributo in atributos_input.split(',')])
+
+        # Solicitar al usuario las condiciones de unión (opcional)
+        condiciones_input = input("Ingrese las condiciones de unión entre las tablas, separadas por AND (opcional): ").strip()
+        condiciones = [condicion.strip() for condicion in condiciones_input.split('AND')] if condiciones_input else []
+
+        # Construir la cláusula FROM
+        from_clause = ", ".join(tablas)
+
+        # Construir la cláusula SELECT
+        select_clause = ", ".join(atributos)
+
+        # Construir la cláusula WHERE
+        where_clause = " AND ".join(condiciones)
+
+        # Habilitar DBMS_OUTPUT
+        cursor.callproc("DBMS_OUTPUT.ENABLE")
+
+        # Definir el bloque PL/SQL
+        plsql_block = f"""
+        DECLARE
+            CURSOR c_dynamic IS
+                SELECT {select_clause}
+                FROM {from_clause}
+                {"WHERE " + where_clause if where_clause else ""};
+        BEGIN
+            -- Recorrer el cursor dinámico
+            FOR r IN c_dynamic LOOP
+                DBMS_OUTPUT.PUT_LINE('Resultado: ' || r.{atributos[0].split(' ')[-1]} || ', ' || r.{atributos[1].split(' ')[-1]} || ', ' || r.{atributos[2].split(' ')[-1]} || ', ' || r.{atributos[3].split(' ')[-1]} || ', ' || r.{atributos[4].split(' ')[-1]});
+            END LOOP;
+        END;
+        """
+
+        # Ejecutar el bloque PL/SQL
+        cursor.execute(plsql_block)
+
+        # Buffer para capturar la salida
+        buffer_size = 10000
+        output = cursor.var(cx_Oracle.STRING)
+        status_var = cursor.var(cx_Oracle.NUMBER)
+
+        while True:
+            cursor.callproc("DBMS_OUTPUT.GET_LINE", (output, status_var))
+            if status_var.getvalue() != 0:
+                break
+            print(output.getvalue())
+
+        print("Cursor dinámico ejecutado exitosamente.")
+    except Exception as e:
+        print(f"Error al ejecutar el cursor dinámico: {e}")
+        
+def cargar_y_ejecutar_cursor(cursor):
+    try:
+        # Ruta predefinida de archivos .txt
+        directorio = r"C:\GBD\Cursors"
+
+        # Listar los archivos .txt en el directorio
+        archivos_txt = [f for f in os.listdir(directorio) if f.endswith('.txt')]
+        if not archivos_txt:
+            print("No se encontraron archivos .txt en el directorio especificado.")
+            return
+
+        # Mostrar los archivos disponibles
+        print("Archivos disponibles:")
+        for idx, archivo in enumerate(archivos_txt, start=1):
+            print(f"{idx}. {archivo}")
+
+        # Solicitar al usuario que seleccione un archivo
+        seleccion = int(input("Seleccione el número del archivo a ejecutar: "))
+        if seleccion < 1 or seleccion > len(archivos_txt):
+            print("Selección no válida.")
+            return
+
+        # Leer el contenido del archivo seleccionado
+        archivo_seleccionado = archivos_txt[seleccion - 1]
+        ruta_archivo = os.path.join(directorio, archivo_seleccionado)
+        with open(ruta_archivo, 'r') as file:
+            contenido = file.read()
+
+        # Verificar que el contenido contiene un cursor
+        if "CURSOR" not in contenido.upper():
+            print("El archivo seleccionado no contiene un cursor válido.")
+            return
+
+        # Habilitar DBMS_OUTPUT
+        cursor.callproc("DBMS_OUTPUT.ENABLE")
+
+        # Ejecutar el contenido del archivo como un bloque PL/SQL
+        cursor.execute(contenido)
+
+        # Buffer para capturar la salida
+        buffer_size = 10000
+        output = cursor.var(cx_Oracle.STRING)
+        status_var = cursor.var(cx_Oracle.NUMBER)
+
+        print("Resultados del cursor:")
+        while True:
+            cursor.callproc("DBMS_OUTPUT.GET_LINE", (output, status_var))
+            if status_var.getvalue() != 0:
+                break
+            print(output.getvalue())
+
+        print("Cursor ejecutado exitosamente desde el archivo:", archivo_seleccionado)
+    except Exception as e:
+        print(f"Error al ejecutar el cursor desde el archivo: {e}")
+
+def ejecutar_consulta_hilo(dsn_tns, user, password, consulta, resultados):
+    try:
+        conexion = cx_Oracle.connect(user=user, password=password, dsn=dsn_tns)
+        cursor = conexion.cursor()
+        start_time = time.time()
+        cursor.execute(consulta)
+        if consulta.strip().upper().startswith("SELECT"):
+            resultado = cursor.fetchall()
+        else:
+            conexion.commit()
+            resultado = "Operación exitosa"
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        resultados.append((consulta, resultado, elapsed_time))
+
+        # Insertar en el historial de consultas
+        insertar_historial(cursor, consulta, resultado)
+        
+        cursor.close()
+        conexion.close()
+    except Exception as e:
+        resultados.append((consulta, str(e), None))
+
+def insertar_historial(cursor, consulta, resultado):
+    try:
+        resultado_str = str(resultado) if isinstance(resultado, list) else resultado
+        query = """
+        INSERT INTO ALEXT.HISTORIAL_CONSULTAS (CONSULTA, RESULTADO)
+        VALUES (:consulta, :resultado)
+        """
+        cursor.execute(query, consulta=consulta, resultado=resultado_str)
+        cursor.connection.commit()
+    except Exception as e:
+        print(f"Error al insertar en el historial de consultas: {e}")
+
+def aplicar_multiples_hilos(dsn_tns, user, password, consultas):
+    try:
+        hilos = []
+        resultados = []
+        
+        for consulta in consultas:
+            hilo = threading.Thread(target=ejecutar_consulta_hilo, args=(dsn_tns, user, password, consulta, resultados))
+            hilos.append(hilo)
+            hilo.start()
+        
+        for hilo in hilos:
+            hilo.join()
+        
+        for consulta, resultado, elapsed_time in resultados:
+            print(f"Consulta: {consulta}")
+            if elapsed_time is not None:
+                print(f"Resultado: {resultado}")
+                print(f"Tiempo de ejecución: {elapsed_time:.4f} segundos")
+            else:
+                print(f"Error: {resultado}")
+        print("Consultas ejecutadas en múltiples hilos exitosamente.")
+    except Exception as e:
+        print(f"Error al aplicar múltiples hilos: {e}")
+
+def mostrar_historial_consultas(cursor):
+    try:
+        query = "SELECT * FROM ALEXT.HISTORIAL_CONSULTAS ORDER BY FECHA DESC"
+        cursor.execute(query)
+        historial = cursor.fetchall()
+        if historial:
+            print("Historial de consultas realizadas:")
+            for registro in historial:
+                print(registro)
+        else:
+            print("No hay historial de consultas disponible.")
+    except Exception as e:
+        print(f"Error al mostrar el historial de consultas: {e}")
+
+def cambiar_estado_obras_prestadas(cursor):
+    try:
+        # Habilitar DBMS_OUTPUT
+        cursor.callproc("DBMS_OUTPUT.ENABLE")
+
+        # Definir el bloque PL/SQL con un cursor para recorrer todas las obras prestadas y devueltas
+        plsql_block = """
+        DECLARE
+            CURSOR c_prestamos IS
+                SELECT PrestamoID, ObraID, FechaDevolucion, PrestadorID 
+                FROM ALEXT.PRESTAMO;
+
+            v_prestamo_id ALEXT.PRESTAMO.PrestamoID%TYPE;
+            v_obra_id ALEXT.PRESTAMO.ObraID%TYPE;
+            v_fecha_devolucion ALEXT.PRESTAMO.FechaDevolucion%TYPE;
+            v_prestador_id ALEXT.PRESTAMO.PrestadorID%TYPE;
+            v_piso ALEXT.UBICACIONOBRA.Piso%TYPE;
+            v_seccion ALEXT.UBICACIONOBRA.Seccion%TYPE;
+            v_referencia ALEXT.UBICACIONOBRA.Referencia%TYPE;
+            v_prestador_nombre ALEXT.PRESTADOR.Nombre%TYPE;
+            v_prestador_apellido ALEXT.PRESTADOR.Apellido%TYPE;
+        BEGIN
+            OPEN c_prestamos;
+            LOOP
+                FETCH c_prestamos INTO v_prestamo_id, v_obra_id, v_fecha_devolucion, v_prestador_id;
+                EXIT WHEN c_prestamos%NOTFOUND;
+
+                -- Obtener detalles del prestador
+                SELECT Nombre, Apellido INTO v_prestador_nombre, v_prestador_apellido
+                FROM ALEXT.PRESTADOR
+                WHERE PrestadorID = v_prestador_id;
+
+                -- Obtener ubicación original de la obra
+                SELECT piso, seccion, referencia INTO v_piso, v_seccion, v_referencia
+                FROM ALEXT.UBICACIONOBRA u
+                JOIN ALEXT.OBRADEARTE o ON u.ubicacionObraID = o.ubicacionObraID
+                WHERE o.ObraID = v_obra_id;
+
+                IF v_fecha_devolucion IS NULL THEN
+                    UPDATE ALEXT.UBICACIONOBRA
+                    SET piso = 'Prestado',
+                        seccion = 'Prestado',
+                        referencia = 'Prestado a ' || v_prestador_nombre || ' ' || v_prestador_apellido
+                    WHERE ubicacionObraID = (
+                        SELECT ubicacionObraID 
+                        FROM ALEXT.OBRADEARTE 
+                        WHERE ObraID = v_obra_id
+                    );
+                    
+                    DBMS_OUTPUT.PUT_LINE('ObraID: ' || v_obra_id || ' prestada a: ' || v_prestador_nombre || ' ' || v_prestador_apellido);
+                ELSE
+                    UPDATE ALEXT.UBICACIONOBRA
+                    SET piso = 'Por asignar',
+                        seccion = 'Por asignar',
+                        referencia = 'Devuelta por ' || v_prestador_nombre || ' ' || v_prestador_apellido
+                    WHERE ubicacionObraID = (
+                        SELECT ubicacionObraID 
+                        FROM ALEXT.OBRADEARTE 
+                        WHERE ObraID = v_obra_id
+                    );
+
+                    DBMS_OUTPUT.PUT_LINE('ObraID: ' || v_obra_id || ' devuelta por: ' || v_prestador_nombre || ' ' || v_prestador_apellido);
+                END IF;
+            END LOOP;
+            CLOSE c_prestamos;
+            COMMIT;
+        END;
+        """
+        
+        # Ejecutar el bloque PL/SQL
+        cursor.execute(plsql_block)
+
+        # Buffer para capturar la salida
+        buffer_size = 10000
+        output = cursor.var(cx_Oracle.STRING)
+        status_var = cursor.var(cx_Oracle.NUMBER)
+
+        while True:
+            cursor.callproc("DBMS_OUTPUT.GET_LINE", (output, status_var))
+            if status_var.getvalue() != 0:
+                break
+            print(output.getvalue())
+
+        print("Estado de las obras prestadas y devueltas actualizado exitosamente.")
+    except Exception as e:
+        print(f"Error al cambiar el estado de las obras prestadas y devueltas: {e}")
+
+def opcion12(cursor):
+    print("Ejecutando Opción 12...")
+    aplicar_metadatos(cursor)
+
+def opcion13(cursor):
+    print("Ejecutando Opción 13...")
+    funcion_de_generacion(cursor)
+
+def opcion14(cursor):
+    print("Ejecutando Opción 14...")
+    mostrar_datos_con_cursor(cursor)
+
+def opcion15(cursor):
+    print("Ejecutando Opción 15...")
+    cursor_dinamico(cursor)
+
+def opcion16(cursor):
+    print("Ejecutando Opción 16...")
+    cargar_y_ejecutar_cursor(cursor)
+
+def opcion17(dsn_tns, user, password):
+    print("Ejecutando Opción 17...")
+    consultas = input("Ingrese las consultas a ejecutar, separadas por punto y coma: ").split(';')
+    consultas = [consulta.strip() for consulta in consultas]
+    aplicar_multiples_hilos(dsn_tns, user, password, consultas)
+
+def opcion18(cursor):
+    print("Ejecutando Opción 18...")
+    mostrar_historial_consultas(cursor)
+
+def opcion19(cursor):
+    print("Ejecutando Opción 19...")
+    cambiar_estado_obras_prestadas(cursor)
+
 def main():
     dsn_tns = cx_Oracle.makedsn('localhost', '1521', service_name='xe')
-    conexion = cx_Oracle.connect(user='system', password='1234', dsn=dsn_tns)
+    user = 'system'
+    password = '1234'
+    conexion = cx_Oracle.connect(user=user, password=password, dsn=dsn_tns)
     cursor = conexion.cursor()
 
     while True:
@@ -642,6 +1080,22 @@ def main():
         elif opcion == '11':
             opcion11(cursor)
         elif opcion == '12':
+            opcion12(cursor)
+        elif opcion == '13':
+            opcion13(cursor)
+        elif opcion == '14':
+            opcion14(cursor)
+        elif opcion == '15':
+            opcion15(cursor)
+        elif opcion == '16':
+            opcion16(cursor)
+        elif opcion == '17':
+            opcion17(dsn_tns, user, password)
+        elif opcion == '18':
+            opcion18(cursor)
+        elif opcion == '19':
+            opcion19(cursor)
+        elif opcion == '20':
             print("Saliendo del programa...")
             break
         else:
